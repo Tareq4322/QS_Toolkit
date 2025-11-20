@@ -12,6 +12,8 @@ import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
 import android.os.BatteryManager;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.service.quicksettings.Tile;
@@ -27,45 +29,45 @@ public class QuickSettingsTileService extends TileService {
     private boolean shouldEmulatePowerSaveTile = false;
     private boolean isCharging = false;
 
-    /**
-     * NEW METHOD: Dynamically draws text onto a Tile Icon.
-     * Features:
-     * 1. Adds Degree Symbol support.
-     * 2. Auto-scales text size so it never gets cut off.
-     */
+    // NEW: Handler for the animation loop
+    private final Handler toggleHandler = new Handler(Looper.getMainLooper());
+    private boolean showWattage = false; // Toggle state
+    private Intent lastBatteryIntent = null; // Store the last known battery state
+
+    // NEW: Runnable that flips the state and updates the tile
+    private final Runnable toggleRunnable = new Runnable() {
+        @Override
+        public void run() {
+            showWattage = !showWattage; // Flip between Temp and Wattage
+            if (lastBatteryIntent != null) {
+                setBatteryInfo(lastBatteryIntent); // Redraw tile
+            }
+            // Schedule next flip in 2 seconds (2000ms)
+            toggleHandler.postDelayed(this, 2000);
+        }
+    };
+
     private Icon createDynamicIcon(String text) {
-        // 1. Create a blank square bitmap (100x100 is a good balance of quality/performance)
         Bitmap bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
-
-        // 2. Setup the paint (White text, Bold)
         Paint paint = new Paint();
-        paint.setColor(Color.WHITE); 
+        paint.setColor(Color.WHITE);
         paint.setAntiAlias(true);
         paint.setTypeface(Typeface.DEFAULT_BOLD);
         paint.setTextAlign(Paint.Align.CENTER);
-        
-        // 3. Auto-Size Logic: Start large and shrink until it fits
-        float textSize = 65f; // Start with a large size
+
+        float textSize = 65f;
         paint.setTextSize(textSize);
-        
-        // The max width we allow the text to be (96px leaves 2px padding on each side)
         final float maxWidth = 96f;
 
-        // While the text is too wide, shrink the text size
         while (paint.measureText(text) > maxWidth) {
             textSize -= 1f;
             paint.setTextSize(textSize);
         }
 
-        // 4. Calculate vertical center so text is perfectly in the middle
-        // (ascent is negative, descent is positive)
         float yPos = (canvas.getHeight() / 2f) - ((paint.descent() + paint.ascent()) / 2f);
-
-        // 5. Draw the text
         canvas.drawText(text, canvas.getWidth() / 2f, yPos, paint);
 
-        // 6. Convert to Icon
         return Icon.createWithBitmap(bitmap);
     }
 
@@ -79,30 +81,52 @@ public class QuickSettingsTileService extends TileService {
     }
 
     private void setBatteryInfo(Intent intent) {
+        lastBatteryIntent = intent; // Save for the timer to use later
+
         final int batteryLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
         final int plugState = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
         final int batteryState = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-
-        // MODIFICATION: Get exact decimal temperature
-        final float tempFloat = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10.0f;
-        
-        // MODIFICATION: Format with 1 decimal place AND the degree symbol (e.g., "33.6°")
-        final String tempText = String.format(Locale.US, "%.1f°", tempFloat);
 
         final boolean isPluggedIn = plugState == BatteryManager.BATTERY_PLUGGED_AC || plugState == BatteryManager.BATTERY_PLUGGED_USB || plugState == BatteryManager.BATTERY_PLUGGED_WIRELESS;
         final boolean isFullyCharged = isPluggedIn && batteryState == BatteryManager.BATTERY_STATUS_FULL;
         isCharging = batteryState == BatteryManager.BATTERY_STATUS_CHARGING;
 
+        // --- MODIFIED LOGIC START ---
+
+        String iconText;
+
+        // Logic: If Charging AND we are in the "Wattage" phase of the animation
+        if (isCharging && showWattage) {
+            // Calculate Wattage: (Voltage mV * Current µA) / 1,000,000,000
+            BatteryManager manager = (BatteryManager) getSystemService(BATTERY_SERVICE);
+            int currentMicroAmps = manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW);
+            int voltageMilliVolts = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0);
+            
+            // Convert to absolute value (some phones report negative current for discharge)
+            double currentAmps = Math.abs(currentMicroAmps) / 1000000.0;
+            double voltageVolts = voltageMilliVolts / 1000.0;
+            double wattage = currentAmps * voltageVolts;
+
+            // Format as "15W" or "15.5W"
+            iconText = String.format(Locale.US, "%.1fW", wattage);
+        } else {
+            // Otherwise (Discharging OR Temperature phase), show Temperature
+            final float tempFloat = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10.0f;
+            iconText = String.format(Locale.US, "%.1f°", tempFloat);
+        }
+
+        // --- MODIFIED LOGIC END ---
+
         if (isTappableTileEnabled) {
             getQsTile().setState(isCharging ? Tile.STATE_INACTIVE : (getSystemService(PowerManager.class).isPowerSaveMode() ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE));
         }
 
-        // LOGIC: If user wants info as icon, generate the dynamic text icon
+        // Draw the Dynamic Icon
         if (getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("percentage_as_icon", false)) {
-            getQsTile().setIcon(createDynamicIcon(tempText));
+            getQsTile().setIcon(createDynamicIcon(iconText));
         } 
         else if (isPluggedIn && getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("dynamic_tile_icon", true)) {
-            switch (plugState) {
+             switch (plugState) {
                 case BatteryManager.BATTERY_PLUGGED_AC -> getQsTile().setIcon(Icon.createWithResource(this, R.drawable.ic_power));
                 case BatteryManager.BATTERY_PLUGGED_USB -> getQsTile().setIcon(Icon.createWithResource(this, R.drawable.ic_usb));
                 case BatteryManager.BATTERY_PLUGGED_WIRELESS -> getQsTile().setIcon(Icon.createWithResource(this, R.drawable.ic_dock));
@@ -110,6 +134,7 @@ public class QuickSettingsTileService extends TileService {
             }
         }
 
+        // Standard Tile Text Logic (Unchanged)
         if (isFullyCharged) {
             final String customTileText = getSharedPreferences("preferences", MODE_PRIVATE).getString("charging_text", "");
             setActiveLabelText(customTileText.isEmpty() ? getString(R.string.fully_charged) : new TileTextFormatter(this).format(customTileText));
@@ -122,7 +147,6 @@ public class QuickSettingsTileService extends TileService {
                 setActiveLabelText(new TileTextFormatter(this).format(customTileText));
             } else {
                 final long remainingTime = getSystemService(BatteryManager.class).computeChargeTimeRemaining();
-
                 if (remainingTime < 1) {
                     setActiveLabelText(getString(R.string.charging_no_time_estimate, batteryLevel));
                 } else if (remainingTime <= 60000) {
@@ -145,8 +169,7 @@ public class QuickSettingsTileService extends TileService {
             if (!isTappableTileEnabled) getQsTile().setState(getTileState(false));
 
             if (getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("percentage_as_icon", false)) {
-                // Use the dynamic icon here as well for discharging state
-                getQsTile().setIcon(createDynamicIcon(tempText));
+                getQsTile().setIcon(createDynamicIcon(iconText));
             } else {
                 getQsTile().setIcon(Icon.createWithResource(this, R.drawable.ic_qs_battery));
             }
@@ -191,10 +214,19 @@ public class QuickSettingsTileService extends TileService {
         isTappableTileEnabled = getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("tappableTileEnabled", false);
 
         final Intent batteryChangedIntent = registerReceiver(batteryStateReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-
-        assert batteryChangedIntent != null;
-        final int status = batteryChangedIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-        isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL;
+        
+        if (batteryChangedIntent != null) {
+            final int status = batteryChangedIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+            isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL;
+            
+            // Start animation loop if charging
+            toggleHandler.removeCallbacks(toggleRunnable);
+            if (isCharging) {
+                toggleHandler.post(toggleRunnable);
+            } else {
+                showWattage = false; // Reset to temp when not charging
+            }
+        }
 
         if (shouldEmulatePowerSaveTile) {
             unregisterReceiver(batteryStateReceiver);
@@ -221,7 +253,9 @@ public class QuickSettingsTileService extends TileService {
                 setPowerSaveInfo();
             }
 
-            setBatteryInfo(batteryChangedIntent);
+            if (batteryChangedIntent != null) {
+                setBatteryInfo(batteryChangedIntent);
+            }
         }
     }
 
@@ -247,6 +281,9 @@ public class QuickSettingsTileService extends TileService {
 
     @Override
     public void onStopListening() {
+        // IMPORTANT: Stop the animation when user closes the panel
+        toggleHandler.removeCallbacks(toggleRunnable);
+
         if (isTappableTileEnabled) {
             unregisterReceiver(powerSaveModeReceiver);
         }
