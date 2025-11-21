@@ -17,8 +17,8 @@ public class VolumeTileService extends TileService {
         tile.setLabel("Volume");
         tile.setState(Tile.STATE_ACTIVE);
         
-        // Use the battery icon for now, or upload an 'ic_volume' PNG to your res/drawable folder
-        tile.setIcon(Icon.createWithResource(this, R.drawable.ic_qs_battery));
+        // UPDATED: Now using the proper volume icon
+        tile.setIcon(Icon.createWithResource(this, R.drawable.ic_volume));
         
         tile.updateTile();
     }
