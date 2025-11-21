@@ -1,50 +1,56 @@
-name: Build & Release
+plugins {
+    id 'com.android.application'
+}
 
-on:
-  push:
-    branches: [ "master", "main" ]
-  pull_request:
-    branches: [ "master", "main" ]
-  workflow_dispatch: # Lets you run this manually from the Actions tab
+android {
+    // The namespace must match your package structure
+    namespace 'com.cominatyou.batterytile.standalone'
+    compileSdk 34
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write  # CRITICAL: This permission allows the script to create a Release
+    defaultConfig {
+        applicationId "com.cominatyou.batterytile"
+        minSdk 29
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
 
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: gradle
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+    // Enable ViewBinding and BuildConfig
+    buildFeatures {
+        viewBinding true
+        buildConfig true
+    }
 
-    # 1. Build the APK
-    - name: Build APK
-      run: ./gradlew assembleDebug
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
 
-    # 2. Rename it to something pretty (so it's not just 'app-debug.apk')
-    - name: Rename APK
-      run: mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/TileToolkit.apk
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            signingConfig signingConfigs.debug
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
 
-    # 3. THE ZIP FIX: Upload as a Release Asset (Raw File)
-    # This puts the file in the "Releases" tab on the right, NOT the "Artifacts" tab at the bottom.
-    - name: Release Nightly Build
-      uses: softprops/action-gh-release@v1
-      if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-      with:
-        tag_name: nightly
-        name: Nightly Build
-        files: app/build/outputs/apk/debug/TileToolkit.apk
-        draft: false
-        prerelease: true
-        overwrite: true # Replaces the old nightly every time you push
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+}
