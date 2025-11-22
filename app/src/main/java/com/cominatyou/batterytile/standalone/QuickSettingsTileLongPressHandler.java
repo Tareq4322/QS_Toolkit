@@ -105,12 +105,12 @@ public class QuickSettingsTileLongPressHandler extends Activity {
             if (currentMode == AudioManager.RINGER_MODE_NORMAL) {
                 // Switch to Vibrate
                 audioManager.setRingerMode(AudioManager.RINGER_MODE_VIBRATE);
-                Toast.makeText(this, "📳 Vibrate Mode", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Vibrate Mode", Toast.LENGTH_SHORT).show();
             } else {
                 // Switch to Normal (Ring)
                 // This handles Vibrate -> Normal AND Silent -> Normal
                 audioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
-                Toast.makeText(this, "🔔 Ringer Mode", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Ringer Mode", Toast.LENGTH_SHORT).show();
             }
         } catch (SecurityException e) {
             // Fallback for Do Not Disturb permission issues
