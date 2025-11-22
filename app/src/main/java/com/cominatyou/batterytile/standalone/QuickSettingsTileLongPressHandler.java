@@ -11,7 +11,7 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.widget.Toast;
 
-import com.cominatyou.batterytile.standalone.CaffeineTileService;
+// NO Caffeine import here
 import com.cominatyou.batterytile.standalone.DnsTileService;
 import com.cominatyou.batterytile.standalone.LockTileService;
 import com.cominatyou.batterytile.standalone.QuickSettingsTileService;
@@ -44,7 +44,7 @@ public class QuickSettingsTileLongPressHandler extends Activity {
             targetIntent = new Intent(Intent.ACTION_POWER_USAGE_SUMMARY);
         }
         
-        // 2. Volume Tile -> TOGGLE RINGER MODE (Updated Logic)
+        // 2. Volume Tile -> TOGGLE RINGER MODE
         else if (className.equals(VolumeTileService.class.getName())) {
             toggleRingerMode();
             finish(); // Close immediately, no UI needed
@@ -63,10 +63,7 @@ public class QuickSettingsTileLongPressHandler extends Activity {
             return;
         }
         
-        // 5. Caffeine Tile -> Display Settings (Restored logic)
-        else if (className.equals(CaffeineTileService.class.getName())) {
-            targetIntent = new Intent(Settings.ACTION_DISPLAY_SETTINGS);
-        }
+        // NO Caffeine logic block here either
 
         // --- EXECUTE ---
 
@@ -99,7 +96,7 @@ public class QuickSettingsTileLongPressHandler extends Activity {
         finish();
     }
 
-    // NEW: Helper to toggle between Vibrate and Ring
+    // Helper to toggle between Vibrate and Ring
     private void toggleRingerMode() {
         AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         
