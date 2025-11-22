@@ -11,7 +11,6 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.widget.Toast;
 
-// NO Caffeine import here
 import com.cominatyou.batterytile.standalone.DnsTileService;
 import com.cominatyou.batterytile.standalone.LockTileService;
 import com.cominatyou.batterytile.standalone.QuickSettingsTileService;
@@ -35,6 +34,15 @@ public class QuickSettingsTileLongPressHandler extends Activity {
         }
 
         String className = componentName.getClassName();
+        
+        // ---------------------------------------------------------
+        // 🧪 THE TRACER BULLET 🧪
+        // This popup proves the new code is running.
+        // It also tells us EXACTLY what the system thinks the tile is.
+        // ---------------------------------------------------------
+        Toast.makeText(this, "DEBUG: " + className, Toast.LENGTH_LONG).show();
+        // ---------------------------------------------------------
+
         Intent targetIntent = null;
 
         // --- ROUTING LOGIC ---
@@ -47,7 +55,7 @@ public class QuickSettingsTileLongPressHandler extends Activity {
         // 2. Volume Tile -> TOGGLE RINGER MODE
         else if (className.equals(VolumeTileService.class.getName())) {
             toggleRingerMode();
-            finish(); // Close immediately, no UI needed
+            finish(); 
             return;
         }
 
@@ -56,15 +64,13 @@ public class QuickSettingsTileLongPressHandler extends Activity {
             targetIntent = new Intent("android.settings.NETWORK_AND_INTERNET_SETTINGS");
         }
 
-        // 4. Lock Screen Tile -> App Settings (to manage Accessibility)
+        // 4. Lock Screen Tile -> App Settings
         else if (className.equals(LockTileService.class.getName())) {
             openAppSettings();
             finish();
             return;
         }
         
-        // NO Caffeine logic block here either
-
         // --- EXECUTE ---
 
         if (targetIntent != null) {
@@ -96,37 +102,27 @@ public class QuickSettingsTileLongPressHandler extends Activity {
         finish();
     }
 
-    // Helper to toggle between Vibrate and Ring
     private void toggleRingerMode() {
         AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        
         try {
             int currentMode = audioManager.getRingerMode();
-
             if (currentMode == AudioManager.RINGER_MODE_NORMAL) {
-                // Switch to Vibrate
                 audioManager.setRingerMode(AudioManager.RINGER_MODE_VIBRATE);
                 Toast.makeText(this, "📳 Vibrate Mode", Toast.LENGTH_SHORT).show();
             } else {
-                // Switch to Normal (Ring)
-                // This handles Vibrate -> Normal AND Silent -> Normal
                 audioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
                 Toast.makeText(this, "🔔 Ringer Mode", Toast.LENGTH_SHORT).show();
             }
         } catch (SecurityException e) {
-            // Fallback for Do Not Disturb permission issues
             Toast.makeText(this, "Check DND Permissions", Toast.LENGTH_LONG).show();
         }
     }
 
-    // Robust method to find the App Settings page dynamically
     private void openAppSettings() {
         Intent intent = new Intent("android.intent.action.APPLICATION_PREFERENCES");
         intent.setPackage(getPackageName());
-        
         PackageManager pm = getPackageManager();
         List<ResolveInfo> activities = pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
-
         if (activities != null && !activities.isEmpty()) {
             ResolveInfo info = activities.get(0);
             Intent launchIntent = new Intent();
@@ -135,7 +131,6 @@ public class QuickSettingsTileLongPressHandler extends Activity {
             startActivity(launchIntent);
         } else {
             try {
-                // Absolute fallback: App Info page
                 Intent appInfoIntent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
                 appInfoIntent.setData(android.net.Uri.parse("package:" + getPackageName()));
                 appInfoIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
