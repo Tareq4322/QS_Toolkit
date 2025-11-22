@@ -50,8 +50,9 @@ public class QuickSettingsTileService extends TileService {
     /**
      * Draws text onto the icon.
      * Uses Condensed font to maximize size.
+     * Now accepts a separate text string (textToSizeBy) to fix the font size based on the wider string.
      */
-    private Icon createDynamicIcon(String text) {
+    private Icon createDynamicIcon(String textToDraw, String textToSizeBy) {
         Bitmap bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         Paint paint = new Paint();
@@ -70,13 +71,14 @@ public class QuickSettingsTileService extends TileService {
         // We allow it to go up to 98% width (1px padding on sides)
         final float maxWidth = 98f;
 
-        while (paint.measureText(text) > maxWidth) {
+        // CRITICAL FIX: Base sizing on the reference text (which is always the widest one, the temperature)
+        while (paint.measureText(textToSizeBy) > maxWidth) {
             textSize -= 1f;
             paint.setTextSize(textSize);
         }
 
         float yPos = (canvas.getHeight() / 2f) - ((paint.descent() + paint.ascent()) / 2f);
-        canvas.drawText(text, canvas.getWidth() / 2f, yPos, paint);
+        canvas.drawText(textToDraw, canvas.getWidth() / 2f, yPos, paint);
 
         return Icon.createWithBitmap(bitmap);
     }
@@ -101,11 +103,15 @@ public class QuickSettingsTileService extends TileService {
         final boolean isFullyCharged = isPluggedIn && batteryState == BatteryManager.BATTERY_STATUS_FULL;
         isCharging = batteryState == BatteryManager.BATTERY_STATUS_CHARGING;
 
-        // --- ICON TEXT LOGIC ---
-        String iconText;
-
-        // Only show wattage if we are charging AND the toggle says so
-        if (isCharging && showWattage) {
+        // --- ICON TEXT PRE-CALCULATION FOR SIZING ---
+        
+        // 1. Calculate Temperature text (this is the widest string, used for size reference)
+        final float tempFloat = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10.0f;
+        final String tempText = String.format(Locale.US, "%.1f°", tempFloat);
+        
+        // 2. Calculate Wattage text
+        String wattageText = "";
+        if (isCharging) {
             BatteryManager manager = (BatteryManager) getSystemService(BATTERY_SERVICE);
             int currentMicroAmps = manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW);
             int voltageMilliVolts = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0);
@@ -113,12 +119,20 @@ public class QuickSettingsTileService extends TileService {
             double currentAmps = Math.abs(currentMicroAmps) / 1000000.0;
             double voltageVolts = voltageMilliVolts / 1000.0;
             double wattage = currentAmps * voltageVolts;
+            wattageText = String.format(Locale.US, "%.1fW", wattage);
+        }
 
-            iconText = String.format(Locale.US, "%.1fW", wattage);
+        // --- ICON DRAWING LOGIC ---
+        Icon iconToDraw;
+        String iconText;
+        String sizeReferenceText = tempText; // Always size based on temperature
+
+        if (isCharging && showWattage) {
+            iconText = wattageText;
+            iconToDraw = createDynamicIcon(iconText, sizeReferenceText);
         } else {
-            // Otherwise show temperature (Discharging or Temp phase)
-            final float tempFloat = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10.0f;
-            iconText = String.format(Locale.US, "%.1f°", tempFloat);
+            iconText = tempText;
+            iconToDraw = createDynamicIcon(iconText, sizeReferenceText);
         }
         // -----------------------
 
@@ -127,7 +141,7 @@ public class QuickSettingsTileService extends TileService {
         }
 
         if (getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("percentage_as_icon", false)) {
-            getQsTile().setIcon(createDynamicIcon(iconText));
+            getQsTile().setIcon(iconToDraw);
         } 
         else if (isPluggedIn && getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("dynamic_tile_icon", true)) {
              switch (plugState) {
@@ -172,7 +186,7 @@ public class QuickSettingsTileService extends TileService {
             if (!isTappableTileEnabled) getQsTile().setState(getTileState(false));
 
             if (getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("percentage_as_icon", false)) {
-                getQsTile().setIcon(createDynamicIcon(iconText));
+                getQsTile().setIcon(iconToDraw);
             } else {
                 getQsTile().setIcon(Icon.createWithResource(this, R.drawable.ic_qs_battery));
             }
