@@ -24,7 +24,7 @@ public class QuickSettingsTileLongPressHandler extends Activity {
         super.onCreate(savedInstanceState);
 
         // Get the component name of the tile that triggered this activity
-        // using Intent.EXTRA_COMPONENT_NAME to avoid build errors on some SDKs
+        // Using Intent.EXTRA_COMPONENT_NAME is safer for compatibility
         ComponentName componentName = getIntent().getParcelableExtra(Intent.EXTRA_COMPONENT_NAME);
 
         if (componentName == null) {
@@ -96,6 +96,7 @@ public class QuickSettingsTileLongPressHandler extends Activity {
         finish();
     }
 
+    // Robust method to find the App Settings page dynamically
     private void openAppSettings() {
         Intent intent = new Intent("android.intent.action.APPLICATION_PREFERENCES");
         intent.setPackage(getPackageName());
@@ -111,6 +112,7 @@ public class QuickSettingsTileLongPressHandler extends Activity {
             startActivity(launchIntent);
         } else {
             try {
+                // Absolute fallback: App Info page
                 Intent appInfoIntent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
                 appInfoIntent.setData(android.net.Uri.parse("package:" + getPackageName()));
                 appInfoIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
