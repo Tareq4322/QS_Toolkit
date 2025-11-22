@@ -18,7 +18,7 @@ public class KeepAwakeService extends Service {
     public static boolean isRunning = false;
     private PowerManager.WakeLock wakeLock;
     
-    // Use our new custom receiver class
+    // Use our custom receiver class
     private ScreenOffReceiver screenOffReceiver;
 
     private static final String CHANNEL_ID = "keep_awake_channel";
@@ -48,6 +48,7 @@ public class KeepAwakeService extends Service {
             return START_NOT_STICKY;
         }
 
+        // Default to Bright if no specific action or intent is null
         boolean allowDim = ACTION_START_DIM.equals(action);
 
         acquireWakeLock(allowDim);
@@ -98,6 +99,7 @@ public class KeepAwakeService extends Service {
         }
 
         PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        // SCREEN_DIM_WAKE_LOCK is deprecated but required for this specific feature
         int levelAndFlags = allowDim ? PowerManager.SCREEN_DIM_WAKE_LOCK : PowerManager.SCREEN_BRIGHT_WAKE_LOCK;
         
         wakeLock = powerManager.newWakeLock(levelAndFlags, "QSToolkit:KeepAwake");
@@ -141,61 +143,6 @@ public class KeepAwakeService extends Service {
                 NotificationManager.IMPORTANCE_LOW
         );
         channel.setDescription("Notifications for the Keep Awake service");
-        NotificationManager manager = getSystemService(NotificationManager.class);
-        if (manager != null) {
-            manager.createNotificationChannel(channel);
-        }
-    }
-}        // Acquire the WakeLock
-        if (wakeLock == null) {
-            PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            wakeLock = powerManager.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "QSToolkit:KeepAwake");
-            wakeLock.acquire();
-        }
-
-        isRunning = true;
-        
-        // Notify the Tile to update its UI
-        CaffeineTileService.requestUpdate(this);
-        
-        return START_STICKY;
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (wakeLock != null && wakeLock.isHeld()) {
-            wakeLock.release();
-        }
-        isRunning = false;
-        CaffeineTileService.requestUpdate(this);
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
-
-    private Notification createNotification() {
-        Notification.Builder builder = new Notification.Builder(this, CHANNEL_ID)
-                .setContentTitle("Caffeine is On")
-                .setContentText("Keeping your screen awake...")
-                .setSmallIcon(R.drawable.ic_coffee)
-                .setOngoing(true);
-                
-        if (Build.VERSION.SDK_INT >= 31) {
-            builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
-        }
-        
-        return builder.build();
-    }
-
-    private void createNotificationChannel() {
-        NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID,
-                "Caffeine Service",
-                NotificationManager.IMPORTANCE_LOW
-        );
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager != null) {
             manager.createNotificationChannel(channel);
