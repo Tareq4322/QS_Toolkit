@@ -5,14 +5,6 @@
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
 
-    <!-- Permissions for Caffeine Tile -->
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <!-- Required for Android 14+ because we are using a special use foreground service -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <!-- Required for Android 13+ to show the persistent notification -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -69,23 +61,6 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE"/>
             </intent-filter>
         </service>
-
-        <!-- Caffeine Tile -->
-        <service android:name=".standalone.CaffeineTileService"
-            android:label="Caffeine"
-            android:icon="@drawable/ic_coffee"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE"/>
-            </intent-filter>
-        </service>
-
-        <!-- Keep Awake Background Service -->
-        <!-- This service runs silently to hold the WakeLock so Android doesn't kill it -->
-        <service android:name=".standalone.KeepAwakeService"
-            android:foregroundServiceType="specialUse"
-            android:exported="false" />
 
         <!-- Accessibility Service -->
         <service android:name=".TileAccessibilityService"
